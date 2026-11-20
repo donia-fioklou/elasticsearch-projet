@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎬 CinéSearch — Powered by Elasticsearch</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+  <style>
+    :root {
+      --es-yellow: #FEC514;
+      --es-blue: #0077CC;
+      --es-dark: #1a1a2e;
+      --card-bg: #16213e;
+      --text-muted-custom: #8892b0;
+    }
+
+    body {
+      background: var(--es-dark);
+      color: #ccd6f6;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── NAVBAR ── */
+    .navbar {
+      background: linear-gradient(90deg, #0f0c29, #302b63, #24243e);
+      border-bottom: 2px solid var(--es-yellow);
+      padding: 1rem 2rem;
+    }
+    .navbar-brand {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--es-yellow) !important;
+    }
+    .es-badge {
+      background: var(--es-yellow);
+      color: #1a1a2e;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 12px;
+      vertical-align: middle;
+    }
+
+    /* ── HERO SEARCH ── */
+    .hero {
+      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      padding: 3rem 2rem 2rem;
+      text-align: center;
+    }
+    .hero h1 { font-size: 2.5rem; font-weight: 800; color: #fff; }
+    .hero p { color: var(--text-muted-custom); font-size: 1.05rem; }
+
+    .search-wrapper {
+      position: relative;
+      max-width: 700px;
+      margin: 1.5rem auto 0;
+    }
+    .search-input {
+      background: rgba(255,255,255,0.08);
+      border: 2px solid rgba(254,197,20,0.4);
+      border-radius: 50px;
+      color: #fff;
+      padding: 0.9rem 1.5rem 0.9rem 3.5rem;
+      font-size: 1.05rem;
+      width: 100%;
+      transition: border-color 0.3s;
+    }
+    .search-input:focus {
+      outline: none;
+      border-color: var(--es-yellow);
+      background: rgba(255,255,255,0.12);
+      box-shadow: 0 0 20px rgba(254,197,20,0.2);
+    }
+    .search-icon {
+      position: absolute;
+      left: 1.2rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--es-yellow);
+      font-size: 1.1rem;
+    }
+
+    /* Autocomplete dropdown */
+    .autocomplete-list {
+      position: absolute;
+      top: 110%;
+      left: 0; right: 0;
+      background: #1e2a45;
+      border: 1px solid rgba(254,197,20,0.3);
+      border-radius: 12px;
+      z-index: 1000;
+      overflow: hidden;
+      display: none;
+    }
+    .autocomplete-list.show { display: block; }
+    .autocomplete-item {
+      padding: 0.6rem 1.2rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .autocomplete-item:hover { background: rgba(254,197,20,0.1); }
+    .autocomplete-item small { color: var(--text-muted-custom); }
+
+    /* ── FILTERS ── */
+    .filters-bar {
+      background: #0d1117;
+      padding: 1rem 2rem;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .filter-select {
+      background: #1e2a45;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #ccd6f6;
+      border-radius: 8px;
+      padding: 0.4rem 0.8rem;
+      font-size: 0.9rem;
+    }
+    .filter-select:focus { border-color: var(--es-yellow); outline: none; }
+    .filter-label { color: var(--text-muted-custom); font-size: 0.85rem; margin-bottom: 0.2rem; }
+    .btn-reset {
+      background: transparent;
+      border: 1px solid rgba(254,197,20,0.4);
+      color: var(--es-yellow);
+      border-radius: 8px;
+      padding: 0.4rem 1rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-reset:hover { background: var(--es-yellow); color: #1a1a2e; }
+
+    /* ── TABS ── */
+    .nav-tabs-custom {
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 0 2rem;
+      background: #0d1117;
+    }
+    .nav-tabs-custom .nav-link {
+      color: var(--text-muted-custom);
+      border: none;
+      padding: 0.8rem 1.2rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border-bottom: 3px solid transparent;
+      background: transparent;
+    }
+    .nav-tabs-custom .nav-link.active {
+      color: var(--es-yellow);
+      border-bottom-color: var(--es-yellow);
+    }
+    .nav-tabs-custom .nav-link:hover { color: #fff; }
+
+    /* ── RESULTS INFO ── */
+    .results-info {
+      padding: 1rem 2rem 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-muted-custom);
+    }
+    .results-info .highlight { color: var(--es-yellow); font-weight: 600; }
+
+    /* ── MOVIE CARDS ── */
+    .movies-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1.5rem;
+      padding: 1rem 2rem 2rem;
+    }
+
+    .movie-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: transform 0.3s, box-shadow 0.3s;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .movie-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 12px 35px rgba(0,0,0,0.5);
+      border-color: rgba(254,197,20,0.3);
+    }
+
+    .movie-poster {
+      width: 100%;
+      height: 280px;
+      object-fit: cover;
+      background: #0f0c29;
+    }
+    .movie-poster-placeholder {
+      width: 100%;
+      height: 280px;
+      background: linear-gradient(135deg, #0f0c29, #302b63);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+    }
+
+    .movie-body {
+      padding: 0.8rem;
+    }
+    .movie-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.2rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .movie-year { color: var(--text-muted-custom); font-size: 0.8rem; }
+    .movie-rating {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: rgba(254,197,20,0.15);
+      color: var(--es-yellow);
+      font-weight: 700;
+      font-size: 0.8rem;
+      padding: 2px 7px;
+      border-radius: 20px;
+      margin-top: 0.3rem;
+    }
+    .movie-genre {
+      font-size: 0.72rem;
+      color: var(--text-muted-custom);
+      margin-top: 0.3rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .score-badge {
+      font-size: 0.65rem;
+      background: rgba(0,119,204,0.2);
+      color: #60a5fa;
+      padding: 1px 5px;
+      border-radius: 4px;
+      float: right;
+    }
+
+    /* ── STATS TAB ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+      padding: 1.5rem 2rem;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 1.3rem;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .stat-card h6 {
+      color: var(--es-yellow);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 1rem;
+    }
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #fff;
+    }
+    .stat-sub { color: var(--text-muted-custom); font-size: 0.85rem; }
+
+    /* Genre bars */
+    .genre-bar-wrap { margin-bottom: 0.8rem; }
+    .genre-bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.82rem;
+      margin-bottom: 3px;
+    }
+    .genre-bar-label span:first-child { color: #ccd6f6; }
+    .genre-bar-label span:last-child { color: var(--es-yellow); font-weight: 600; }
+    .genre-bar-track {
+      background: rgba(255,255,255,0.07);
+      border-radius: 20px;
+      height: 6px;
+      overflow: hidden;
+    }
+    .genre-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--es-blue), var(--es-yellow));
+      border-radius: 20px;
+      transition: width 1s ease;
+    }
+
+    /* ── MODAL FILM ── */
+    .modal-content {
+      background: #1a1a2e;
+      border: 1px solid rgba(254,197,20,0.2);
+      color: #ccd6f6;
+    }
+    .modal-header { border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .modal-title { color: #fff; font-weight: 700; }
+    .btn-close { filter: invert(1); }
+
+    .modal-poster {
+      width: 180px;
+      border-radius: 10px;
+      flex-shrink: 0;
+    }
+    .modal-poster-placeholder {
+      width: 180px;
+      height: 260px;
+      background: linear-gradient(135deg, #0f0c29, #302b63);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 4rem;
+      flex-shrink: 0;
+    }
+
+    .info-row { margin-bottom: 0.6rem; }
+    .info-label { color: var(--text-muted-custom); font-size: 0.8rem; }
+    .info-value { color: #fff; font-size: 0.95rem; font-weight: 500; }
+
+    .rec-section h6 {
+      color: var(--es-yellow);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 1.2rem 0 0.8rem;
+    }
+    .rec-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.7rem;
+    }
+    .rec-card {
+      background: #16213e;
+      border-radius: 8px;
+      padding: 0.6rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.05);
+      transition: border-color 0.2s;
+    }
+    .rec-card:hover { border-color: rgba(254,197,20,0.4); }
+    .rec-card-title { color: #fff; font-weight: 600; font-size: 0.82rem; }
+    .rec-card-meta { color: var(--text-muted-custom); font-size: 0.75rem; }
+
+    /* ── ES QUERY PANEL (pédagogique) ── */
+    .query-panel {
+      background: #0d1117;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 1rem 2rem;
+    }
+    .query-panel summary {
+      color: var(--es-yellow);
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .query-code {
+      background: #161b22;
+      border-radius: 8px;
+      padding: 0.8rem 1rem;
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: #7ee787;
+      margin-top: 0.6rem;
+      white-space: pre;
+      overflow-x: auto;
+      max-height: 200px;
+    }
+
+    /* ── LOADING / EMPTY ── */
+    .loading-spinner {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-muted-custom);
+    }
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-muted-custom);
+    }
+    .empty-state i { font-size: 3rem; color: rgba(254,197,20,0.3); margin-bottom: 1rem; }
+
+    /* ── ES TECH PILL ── */
+    .es-tech {
+      display: inline-block;
+      background: rgba(0,119,204,0.15);
+      border: 1px solid rgba(0,119,204,0.3);
+      color: #60a5fa;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 20px;
+      margin: 1px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <span class="navbar-brand">
+    🎬 CinéSearch
+    <span class="es-badge">Elasticsearch 8.12</span>
+  </span>
+  <span id="health-indicator" style="font-size:0.8rem; color:#666;">
+    <i class="fa fa-circle" style="color:#666"></i> Vérification ES...
+  </span>
+</nav>
+
+<!-- HERO SEARCH -->
+<div class="hero">
+  <h1>Trouve ton prochain film 🍿</h1>
+  <p>Recherche full-text, filtres, recommandations — <strong style="color:var(--es-yellow)">tout en Elasticsearch</strong></p>
+  <div class="search-wrapper">
+    <i class="fa fa-search search-icon"></i>
+    <input
+      type="text"
+      class="search-input"
+      id="searchInput"
+      placeholder="Cherche un film, un réalisateur, un acteur..."
+      autocomplete="off"
+    />
+    <div class="autocomplete-list" id="autocompleteList"></div>
+  </div>
+</div>
+
+<!-- FILTRES -->
+<div class="filters-bar">
+  <div class="d-flex flex-wrap align-items-end gap-3">
+    <div>
+      <div class="filter-label">Genre</div>
+      <select class="filter-select" id="genreFilter">
+        <option value="">Tous les genres</option>
+        <option>Action</option>
+        <option>Animation</option>
+        <option>Aventure</option>
+        <option>Biographie</option>
+        <option>Comédie</option>
+        <option>Comédie noire</option>
+        <option>Crime</option>
+        <option>Drame</option>
+        <option>Famille</option>
+        <option>Fantastique</option>
+        <option>Histoire</option>
+        <option>Musique</option>
+        <option>Musical</option>
+        <option>Romance</option>
+        <option>Science-Fiction</option>
+        <option>Thriller</option>
+        <option>Guerre</option>
+      </select>
+    </div>
+    <div>
+      <div class="filter-label">Année min</div>
+      <select class="filter-select" id="yearMinFilter">
+        <option value="">–</option>
+        <option>1970</option><option>1990</option><option>2000</option>
+        <option>2010</option><option>2015</option><option>2020</option>
+      </select>
+    </div>
+    <div>
+      <div class="filter-label">Année max</div>
+      <select class="filter-select" id="yearMaxFilter">
+        <option value="">–</option>
+        <option>1999</option><option>2009</option><option>2019</option>
+        <option>2023</option><option>2024</option>
+      </select>
+    </div>
+    <div>
+      <div class="filter-label">Note min ⭐</div>
+      <select class="filter-select" id="ratingFilter">
+        <option value="">Toutes</option>
+        <option value="7">7+</option>
+        <option value="8">8+</option>
+        <option value="8.5">8.5+</option>
+        <option value="9">9+</option>
+      </select>
+    </div>
+    <button class="btn-reset" onclick="resetFilters()">
+      <i class="fa fa-undo"></i> Réinitialiser
+    </button>
+  </div>
+</div>
+
+<!-- TABS -->
+<ul class="nav nav-tabs-custom">
+  <li class="nav-item">
+    <button class="nav-link active" id="tab-movies" onclick="switchTab('movies')">
+      <i class="fa fa-film"></i> Films
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" id="tab-stats" onclick="switchTab('stats')">
+      <i class="fa fa-chart-bar"></i> Statistiques ES
+    </button>
+  </li>
+</ul>
+
+<!-- ══════ ONGLET FILMS ══════ -->
+<div id="tab-content-movies">
+  <div class="results-info" id="resultsInfo">
+    <span id="resultsText">Chargement...</span>
+    <span id="esTechPills" style="float:right"></span>
+  </div>
+
+  <div id="moviesGrid" class="movies-grid"></div>
+
+  <!-- Panel pédagogique : requête ES générée -->
+  <div class="query-panel">
+    <details>
+      <summary>
+        <i class="fa fa-code"></i> Voir la requête Elasticsearch générée
+      </summary>
+      <div class="query-code" id="esQueryDisplay">
+// Lance une recherche pour voir la requête ES ici
+      </div>
+    </details>
+  </div>
+</div>
+
+<!-- ══════ ONGLET STATS ══════ -->
+<div id="tab-content-stats" style="display:none">
+  <div class="stats-grid" id="statsGrid">
+    <div class="loading-spinner"><i class="fa fa-spinner fa-spin fa-2x"></i></div>
+  </div>
+</div>
+
+<!-- ══════ MODAL FILM ══════ -->
+<div class="modal fade" id="movieModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle">Détails du film</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ─────────────────────────────────────────
+// CONFIG & STATE
+// ─────────────────────────────────────────
+const API = "";  // même origine (Flask sert le HTML)
+let currentMovies = [];
+let searchTimeout = null;
+let autocompleteTimeout = null;
+let lastQuery = {};
+
+// ─────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  checkHealth();
+  loadMovies();
+  loadStats();
+
+  document.getElementById("searchInput").addEventListener("input", onSearchInput);
+  document.getElementById("genreFilter").addEventListener("change", onFilterChange);
+  document.getElementById("yearMinFilter").addEventListener("change", onFilterChange);
+  document.getElementById("yearMaxFilter").addEventListener("change", onFilterChange);
+  document.getElementById("ratingFilter").addEventListener("change", onFilterChange);
+
+  // Fermer autocomplete si on clique ailleurs
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".search-wrapper")) {
+      document.getElementById("autocompleteList").classList.remove("show");
+    }
+  });
+});
+
+// ─────────────────────────────────────────
+// SANTÉ ES
+// ─────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const r = await fetch(`${API}/api/health`);
+    const data = await r.json();
+    const el = document.getElementById("health-indicator");
+    if (data.status === "ok") {
+      el.innerHTML = `<i class="fa fa-circle" style="color:#22c55e"></i> ES v${data.es_version} — ${data.movies_indexed} films`;
+      el.style.color = "#22c55e";
+    } else {
+      el.innerHTML = `<i class="fa fa-circle" style="color:#ef4444"></i> ES non connecté`;
+      el.style.color = "#ef4444";
+    }
+  } catch (e) {
+    document.getElementById("health-indicator").innerHTML =
+      `<i class="fa fa-circle" style="color:#ef4444"></i> Erreur connexion`;
+  }
+}
+
+// ─────────────────────────────────────────
+// RECHERCHE
+// ─────────────────────────────────────────
+function onSearchInput(e) {
+  const q = e.target.value;
+  clearTimeout(searchTimeout);
+  clearTimeout(autocompleteTimeout);
+
+  // Autocomplete avec délai court
+  if (q.length >= 2) {
+    autocompleteTimeout = setTimeout(() => fetchAutocomplete(q), 200);
+  } else {
+    document.getElementById("autocompleteList").classList.remove("show");
+  }
+
+  // Recherche principale avec délai plus long
+  searchTimeout = setTimeout(() => loadMovies(), 400);
+}
+
+function onFilterChange() {
+  loadMovies();
+}
+
+function resetFilters() {
+  document.getElementById("searchInput").value = "";
+  document.getElementById("genreFilter").value = "";
+  document.getElementById("yearMinFilter").value = "";
+  document.getElementById("yearMaxFilter").value = "";
+  document.getElementById("ratingFilter").value = "";
+  loadMovies();
+}
+
+async function loadMovies() {
+  const q = document.getElementById("searchInput").value.trim();
+  const genre = document.getElementById("genreFilter").value;
+  const yearMin = document.getElementById("yearMinFilter").value;
+  const yearMax = document.getElementById("yearMaxFilter").value;
+  const ratingMin = document.getElementById("ratingFilter").value;
+
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (genre) params.set("genre", genre);
+  if (yearMin) params.set("year_min", yearMin);
+  if (yearMax) params.set("year_max", yearMax);
+  if (ratingMin) params.set("rating_min", ratingMin);
+
+  showLoading();
+  updateQueryPanel(q, genre, yearMin, yearMax, ratingMin);
+
+  try {
+    const r = await fetch(`${API}/api/search?${params}`);
+    const data = await r.json();
+    currentMovies = data.movies;
+    renderMovies(data.movies, data.total, q);
+  } catch (e) {
+    document.getElementById("moviesGrid").innerHTML = `
+      <div class="empty-state" style="grid-column: 1/-1">
+        <i class="fa fa-exclamation-triangle"></i>
+        <p>Erreur de connexion à l'API.<br>Lance <code>python app.py</code></p>
+      </div>`;
+  }
+}
+
+function showLoading() {
+  document.getElementById("moviesGrid").innerHTML =
+    `<div class="loading-spinner" style="grid-column:1/-1"><i class="fa fa-spinner fa-spin fa-2x"></i><br><small>Requête Elasticsearch...</small></div>`;
+}
+
+function renderMovies(movies, total, query) {
+  const grid = document.getElementById("moviesGrid");
+  const info = document.getElementById("resultsText");
+  const pills = document.getElementById("esTechPills");
+
+  // Info résultats
+  if (query) {
+    info.innerHTML = `<span class="highlight">${total}</span> résultats pour « ${query} »`;
+  } else {
+    info.innerHTML = `<span class="highlight">${total}</span> films dans l'index`;
+  }
+
+  // Pills ES
+  const features = [];
+  if (query) features.push("multi_match", "fuzziness");
+  if (document.getElementById("genreFilter").value) features.push("term filter");
+  if (document.getElementById("ratingFilter").value) features.push("range filter");
+  if (features.length > 0) {
+    features.unshift("bool query");
+  } else {
+    features.push("match_all");
+  }
+  pills.innerHTML = features.map(f => `<span class="es-tech">${f}</span>`).join(" ");
+
+  if (movies.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1">
+        <i class="fa fa-search"></i>
+        <p>Aucun film trouvé.<br><small>Essaie avec d'autres mots-clés</small></p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = movies.map(m => `
+    <div class="movie-card" onclick="openMovieModal('${m.id}')">
+      ${m.poster_url
+        ? `<img src="${m.poster_url}" class="movie-poster" alt="${m.title}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        : ''}
+      <div class="movie-poster-placeholder" ${m.poster_url ? 'style="display:none"' : ''}>🎬</div>
+      <div class="movie-body">
+        ${m.score > 0 ? `<span class="score-badge">score: ${m.score}</span>` : ''}
+        <div class="movie-title">${m.title}</div>
+        <div class="movie-year">${m.year} · ${m.director}</div>
+        <div class="movie-rating"><i class="fa fa-star"></i> ${m.rating}</div>
+        <div class="movie-genre">${Array.isArray(m.genre) ? m.genre.join(', ') : m.genre}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+// ─────────────────────────────────────────
+// AUTOCOMPLETE
+// ─────────────────────────────────────────
+async function fetchAutocomplete(q) {
+  try {
+    const r = await fetch(`${API}/api/autocomplete?q=${encodeURIComponent(q)}`);
+    const data = await r.json();
+    renderAutocomplete(data.suggestions);
+  } catch(e) {}
+}
+
+function renderAutocomplete(suggestions) {
+  const list = document.getElementById("autocompleteList");
+  if (suggestions.length === 0) { list.classList.remove("show"); return; }
+
+  list.innerHTML = suggestions.map(s => `
+    <div class="autocomplete-item" onclick="selectSuggestion('${s.title}')">
+      <strong>${s.title}</strong>
+      <small> — ${s.year} · ${Array.isArray(s.genre) ? s.genre[0] : s.genre}</small>
+    </div>
+  `).join("");
+  list.classList.add("show");
+}
+
+function selectSuggestion(title) {
+  document.getElementById("searchInput").value = title;
+  document.getElementById("autocompleteList").classList.remove("show");
+  loadMovies();
+}
+
+// ─────────────────────────────────────────
+// MODAL FILM + RECOMMANDATIONS
+// ─────────────────────────────────────────
+async function openMovieModal(movieId) {
+  const modal = new bootstrap.Modal(document.getElementById("movieModal"));
+
+  // Trouver le film dans les résultats courants
+  const movie = currentMovies.find(m => m.id === movieId);
+  if (!movie) return;
+
+  document.getElementById("modalTitle").textContent = movie.title;
+  document.getElementById("modalBody").innerHTML = `
+    <div class="d-flex gap-3 mb-3">
+      ${movie.poster_url
+        ? `<img src="${movie.poster_url}" class="modal-poster" onerror="this.style.display='none'">`
+        : `<div class="modal-poster-placeholder">🎬</div>`}
+      <div class="flex-grow-1">
+        <div class="info-row">
+          <div class="info-label">Année</div>
+          <div class="info-value">${movie.year}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Réalisateur</div>
+          <div class="info-value">${movie.director}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Acteurs</div>
+          <div class="info-value">${Array.isArray(movie.actors) ? movie.actors.join(', ') : movie.actors}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Genre</div>
+          <div class="info-value">${Array.isArray(movie.genre) ? movie.genre.join(', ') : movie.genre}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Note</div>
+          <div class="info-value">
+            <span class="movie-rating"><i class="fa fa-star"></i> ${movie.rating}</span>
+            <span style="color:var(--text-muted-custom); font-size:0.8rem"> (${(movie.votes||0).toLocaleString()} votes)</span>
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Langue</div>
+          <div class="info-value">${movie.language}</div>
+        </div>
+      </div>
+    </div>
+    <div class="info-row">
+      <div class="info-label">Synopsis</div>
+      <div class="info-value" style="font-size:0.9rem; color:#aab4cf; line-height:1.6">${movie.description}</div>
+    </div>
+
+    <div class="rec-section">
+      <h6><i class="fa fa-magic"></i> Recommandations — <span class="es-tech">more_like_this</span></h6>
+      <div id="recGrid" class="rec-grid">
+        <div style="grid-column:1/-1; text-align:center; color:var(--text-muted-custom); font-size:0.85rem">
+          <i class="fa fa-spinner fa-spin"></i> Recherche de films similaires...
+        </div>
+      </div>
+    </div>
+  `;
+
+  modal.show();
+
+  // Charger les recommandations
+  try {
+    const r = await fetch(`${API}/api/recommendations/${movieId}`);
+    const data = await r.json();
+    const recGrid = document.getElementById("recGrid");
+    if (data.recommendations && data.recommendations.length > 0) {
+      recGrid.innerHTML = data.recommendations.map(rec => `
+        <div class="rec-card" onclick="bootstrap.Modal.getInstance(document.getElementById('movieModal')).hide()">
+          <div class="rec-card-title">${rec.title}</div>
+          <div class="rec-card-meta">
+            ${rec.year} · <i class="fa fa-star" style="color:var(--es-yellow)"></i> ${rec.rating}
+          </div>
+          <div class="rec-card-meta">${Array.isArray(rec.genre) ? rec.genre[0] : rec.genre}</div>
+        </div>
+      `).join("");
+    } else {
+      recGrid.innerHTML = `<div style="color:var(--text-muted-custom); font-size:0.85rem">Aucune recommandation trouvée.</div>`;
+    }
+  } catch(e) {
+    document.getElementById("recGrid").innerHTML = `<div style="color:#f87171">Erreur lors du chargement des recommandations.</div>`;
+  }
+}
+
+// ─────────────────────────────────────────
+// STATS
+// ─────────────────────────────────────────
+async function loadStats() {
+  try {
+    const r = await fetch(`${API}/api/stats`);
+    const data = await r.json();
+    renderStats(data);
+  } catch(e) {
+    document.getElementById("statsGrid").innerHTML =
+      `<div class="empty-state"><p>Erreur de chargement des stats</p></div>`;
+  }
+}
+
+function renderStats(data) {
+  const maxCount = Math.max(...data.genres.map(g => g.count));
+
+  document.getElementById("statsGrid").innerHTML = `
+    <!-- Chiffres clés -->
+    <div class="stat-card">
+      <h6><i class="fa fa-film"></i> Collection</h6>
+      <div class="stat-number">${data.total_movies}</div>
+      <div class="stat-sub">films indexés dans ES</div>
+      <hr style="border-color:rgba(255,255,255,0.08); margin:1rem 0">
+      <div style="font-size:0.85rem">
+        <div>Note moyenne : <strong style="color:var(--es-yellow)">${data.rating_stats.avg?.toFixed(1) || 'N/A'}</strong></div>
+        <div>Meilleure note : <strong style="color:var(--es-yellow)">${data.rating_stats.max || 'N/A'}</strong></div>
+        <div>Années : <strong style="color:#60a5fa">${data.year_stats.min} – ${data.year_stats.max}</strong></div>
+      </div>
+    </div>
+
+    <!-- Genres -->
+    <div class="stat-card" style="grid-column: span 2">
+      <h6><i class="fa fa-tags"></i> Répartition par genre — <span class="es-tech">terms aggregation</span></h6>
+      ${data.genres.map(g => `
+        <div class="genre-bar-wrap">
+          <div class="genre-bar-label">
+            <span>${g.genre}</span>
+            <span>${g.count} film${g.count > 1 ? 's' : ''} · ⭐ ${g.avg_rating}</span>
+          </div>
+          <div class="genre-bar-track">
+            <div class="genre-bar-fill" style="width: ${Math.round(g.count / maxCount * 100)}%"></div>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+
+    <!-- Langues -->
+    <div class="stat-card">
+      <h6><i class="fa fa-globe"></i> Langues — <span class="es-tech">terms agg</span></h6>
+      ${data.languages.map(l => `
+        <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:0.88rem">
+          <span>${l.language}</span>
+          <span style="color:var(--es-yellow); font-weight:600">${l.count}</span>
+        </div>
+      `).join("")}
+    </div>
+
+    <!-- Top 5 films -->
+    <div class="stat-card" style="grid-column: span 2">
+      <h6><i class="fa fa-trophy"></i> Top films — <span class="es-tech">top_hits aggregation</span></h6>
+      <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:0.7rem">
+        ${data.top_rated.map((m, i) => `
+          <div style="text-align:center; padding:0.5rem; background:rgba(255,255,255,0.03); border-radius:8px">
+            <div style="font-size:1.5rem">${['🥇','🥈','🥉','4️⃣','5️⃣'][i]}</div>
+            <div style="font-size:0.8rem; font-weight:600; color:#fff; margin-top:0.3rem">${m.title}</div>
+            <div style="font-size:0.75rem; color:var(--es-yellow)">⭐ ${m.rating}</div>
+            <div style="font-size:0.7rem; color:var(--text-muted-custom)">${m.year}</div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+
+    <!-- Explication des agrégations ES -->
+    <div class="stat-card" style="grid-column:1/-1; background: rgba(0,119,204,0.07); border-color: rgba(0,119,204,0.2)">
+      <h6><i class="fa fa-lightbulb"></i> Comment ça marche — Agrégations Elasticsearch</h6>
+      <p style="font-size:0.85rem; color:#aab4cf; margin:0">
+        Toutes ces stats sont calculées par une <strong style="color:#60a5fa">seule requête ES</strong> avec <code style="color:var(--es-yellow)">size: 0</code>
+        (zéro documents retournés, seulement les agrégations). ES retourne les résultats en quelques millisecondes
+        même sur des millions de documents. Les agrégations utilisées ici :
+        <span class="es-tech">terms</span> (grouper par genre/langue),
+        <span class="es-tech">avg</span> (note moyenne),
+        <span class="es-tech">stats</span> (min/max/avg/count),
+        <span class="es-tech">top_hits</span> (meilleurs films).
+      </p>
+    </div>
+  `;
+}
+
+// ─────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById("tab-content-movies").style.display = tab === "movies" ? "block" : "none";
+  document.getElementById("tab-content-stats").style.display = tab === "stats" ? "block" : "none";
+  document.getElementById("tab-movies").classList.toggle("active", tab === "movies");
+  document.getElementById("tab-stats").classList.toggle("active", tab === "stats");
+}
+
+// ─────────────────────────────────────────
+// PANEL PÉDAGOGIQUE : REQUÊTE ES
+// ─────────────────────────────────────────
+function updateQueryPanel(q, genre, yearMin, yearMax, ratingMin) {
+  let must = [];
+  let filters = [];
+
+  if (q) {
+    must.push(`  "multi_match": {
+    "query": "${q}",
+    "fields": ["title^3", "description", "director", "actors"],
+    "fuzziness": "AUTO"
+  }`);
+  }
+  if (genre) filters.push(`  { "term": { "genre": "${genre}" } }`);
+  if (yearMin || yearMax) {
+    let r = '  { "range": { "year": {';
+    if (yearMin) r += ` "gte": ${yearMin}`;
+    if (yearMin && yearMax) r += ',';
+    if (yearMax) r += ` "lte": ${yearMax}`;
+    r += ' } } }';
+    filters.push(r);
+  }
+  if (ratingMin) filters.push(`  { "range": { "rating": { "gte": ${ratingMin} } } }`);
+
+  let queryStr;
+  if (!q && filters.length === 0) {
+    queryStr = `GET /movies/_search\n{\n  "query": { "match_all": {} }\n}`;
+  } else {
+    queryStr = `GET /movies/_search\n{\n  "query": {\n    "bool": {\n`;
+    if (must.length) queryStr += `      "must": [\n        { ${must.join(',\n        {')} }\n      ],\n`;
+    else queryStr += `      "must": [ { "match_all": {} } ],\n`;
+    queryStr += `      "filter": [\n${filters.join(',\n')}\n      ]\n    }\n  }\n}`;
+  }
+
+  document.getElementById("esQueryDisplay").textContent = queryStr;
+}
+</script>
+</body>
+</html>
